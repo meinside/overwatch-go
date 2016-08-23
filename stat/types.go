@@ -10,15 +10,16 @@ const (
 // stat struct fetched from official site
 type Stat struct {
 	// info
-	Name            string `json:"name"`
-	ProfileImageUrl string `json:"profile_image_url"`
-	Level           int32  `json:"level"`
-	CompetitiveRank int32  `json:"competitive_rank"`
+	Name                    string `json:"name"`
+	ProfileImageUrl         string `json:"profile_image_url"`
+	Level                   int32  `json:"level"`
+	LevelImageUrl           string `json:"level_image_url"`
+	CompetitiveRank         int32  `json:"competitive_rank"`
+	CompetitiveRankImageUrl string `json:"competitive_rank_image_url"`
+	Detail                  string `json:"detail"`
 
-	// stats: quick play
-	QuickPlay PlayStat `json:"quick_play"`
-
-	// stats: competitive play
+	// stats: quick/competitive play
+	QuickPlay       PlayStat `json:"quick_play"`
 	CompetitivePlay PlayStat `json:"competitive_play"`
 
 	// achievements

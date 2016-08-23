@@ -106,9 +106,27 @@ func parseStat(bytes []byte) (result Stat, err error) {
 		if level, err = extractInt32(doc, "div.player-level > div"); err != nil {
 			return Stat{}, err
 		}
+		var levelImageUrl string
+		if levelImageUrl, err = extractFirstAttrString(doc, "div.player-level", "style"); err != nil {
+			return Stat{}, err
+		} else {
+			// XXX - strip background-image:url(...)
+			if strings.HasPrefix(levelImageUrl, "background-image:url(") {
+				levelImageUrl = strings.TrimLeft(levelImageUrl, "background-image:url(")
+			}
+			if strings.HasSuffix(levelImageUrl, ")") {
+				levelImageUrl = strings.TrimRight(levelImageUrl, ")")
+			}
+		}
 		var competitiveRank int32
 		if competitiveRank, err = extractInt32(doc, "div.competitive-rank > div"); err != nil {
 			competitiveRank = NoCompetitiveRank
+		}
+		var competitiveRankImageUrl string
+		competitiveRankImageUrl, _ = extractFirstAttrString(doc, "div.competitive-rank > img", "src")
+		var detail string
+		if detail, err = extractString(doc, "div.masthead > p.masthead-detail > span"); err != nil {
+			return Stat{}, err
 		}
 		//
 		////////////////
@@ -193,10 +211,13 @@ func parseStat(bytes []byte) (result Stat, err error) {
 
 		// return result
 		return Stat{
-			Name:            name,
-			ProfileImageUrl: profileImageUrl,
-			Level:           level,
-			CompetitiveRank: competitiveRank,
+			Name:                    name,
+			ProfileImageUrl:         profileImageUrl,
+			Level:                   level,
+			LevelImageUrl:           levelImageUrl,
+			CompetitiveRank:         competitiveRank,
+			CompetitiveRankImageUrl: competitiveRankImageUrl,
+			Detail:                  detail,
 
 			QuickPlay:       quickPlayStat,
 			CompetitivePlay: competitivePlayStat,
