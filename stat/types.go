@@ -9,6 +9,10 @@ const (
 
 // stat struct fetched from official site
 type Stat struct {
+	BattleTag string `json:"battletag"`
+	Platform  string `json:"platform"`
+	Region    string `json:"region"`
+
 	// info
 	Name                    string `json:"name"`
 	ProfileImageUrl         string `json:"profile_image_url"`

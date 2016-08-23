@@ -80,13 +80,13 @@ func FetchStat(battleTagString string, battleTagNumber int, platform, region, la
 	}
 
 	// parse it and assign to struct
-	return parseStat(bytes)
+	return parseStat(bytes, battleTagString, battleTagNumber, platform, region)
 }
 
 // parse stat from html bytes
 //
 // XXX - if it stops working, should check the html response and alter css selectors
-func parseStat(bytes []byte) (result Stat, err error) {
+func parseStat(bytes []byte, battleTagString string, battleTagNumber int, platform, region string) (result Stat, err error) {
 	var doc *html.HtmlDocument
 	if doc, err = gokogiri.ParseHtml(bytes); err == nil {
 		defer doc.Free()
@@ -211,6 +211,10 @@ func parseStat(bytes []byte) (result Stat, err error) {
 
 		// return result
 		return Stat{
+			BattleTag: fmt.Sprintf("%s#%d", battleTagString, battleTagNumber),
+			Platform:  platform,
+			Region:    region,
+
 			Name:                    name,
 			ProfileImageUrl:         profileImageUrl,
 			Level:                   level,
