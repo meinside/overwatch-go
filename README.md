@@ -1,5 +1,7 @@
 # overwatch-go
 
+![overwatch](https://github.com/meinside/overwatch-go/raw/master/overwatch_logo.png)
+
 Codes for fetching play stats of [Overwatch™](https://playoverwatch.com).
 
 Stats are crawled from [Blizzard](https://www.blizzard.com)'s official site, and parsed with [Gokogiri](https://github.com/jbowtie/gokogiri).
