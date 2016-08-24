@@ -21,6 +21,8 @@ $ go get -u github.com/meinside/overwatch-stats/...
 $ overwatch -battletag "meinside#3155"
 #
 $ overwatch -platform pc -region kr -language "ko-kr" -battletag "meinside#3155"
+# save to a html file
+$ overwatch -region kr -language ko-kr -battletag "meinside#3155" -html -out "/tmp/test_output.html"
 ```
 
 ## sample usage
