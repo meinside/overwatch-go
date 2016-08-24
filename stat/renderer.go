@@ -2,7 +2,19 @@ package stat
 
 import (
 	"bytes"
+	"fmt"
 	"html/template"
+	"image"
+	"image/color"
+	"image/draw"
+	"image/png"
+	"io/ioutil"
+	"net/http"
+	"os"
+
+	"github.com/golang/freetype"
+	"github.com/golang/freetype/truetype"
+	"github.com/nfnt/resize"
 )
 
 const (
@@ -281,7 +293,25 @@ const (
 </html>`
 )
 
-// render given stat to html format, using template
+const (
+	BannerWidth        = 468
+	BannerHeight       = 60
+	Margin             = 5
+	BannerLevelBgSize  = 60
+	BannerRankIconSize = 42
+
+	BannerLogoFilename    = "etc/overwatch60x60.png"
+	OverwatchLogoImageUrl = "https://github.com/meinside/overwatch-go/raw/master/overwatch_logo.png"
+
+	KoverwatchFontUrl = "http://kr.battle.net/forums/static/fonts/koverwatch/koverwatch.ttf"
+
+	FontSizeBattleTag float64 = 21.0
+	FontSizeDetail    float64 = 15.0
+	FontSizeLevel     float64 = 12.0
+	FontSizeRank      float64 = 12.0
+)
+
+// render given stat to .html format, using template
 func RenderStatToHtml(stat Stat, templateStr string) (result string, err error) {
 	var tmpl *template.Template
 	if tmpl, err = template.New("html").Parse(templateStr); err == nil {
@@ -291,4 +321,185 @@ func RenderStatToHtml(stat Stat, templateStr string) (result string, err error) 
 		}
 	}
 	return "", err
+}
+
+// render given stat to a banner in .png format
+func RenderStatToPng(stat Stat, outFilepath string) (err error) {
+	banner := image.NewRGBA(image.Rect(0, 0, BannerWidth, BannerHeight))
+
+	// fill background color (#405275)
+	draw.Draw(
+		banner,
+		banner.Bounds(),
+		&image.Uniform{color.RGBA{64, 82, 117, 255}},
+		image.ZP,
+		draw.Src,
+	)
+
+	// draw profile image
+	var profile image.Image
+	if profile, err = getImage(stat.ProfileImageUrl); err == nil {
+		// resize it to fit in the banner
+		profile = resize.Resize(BannerHeight, BannerHeight, profile, resize.Lanczos3)
+
+		draw.Draw(
+			banner,
+			image.Rectangle{
+				Min: image.Point{X: 0, Y: 0},
+				Max: image.Point{X: BannerHeight, Y: BannerHeight},
+			},
+			profile,
+			image.ZP,
+			draw.Over,
+		)
+	} else {
+		return err
+	}
+
+	// draw logo image
+	var logo image.Image
+	if logo, err = getImage(OverwatchLogoImageUrl); err == nil {
+		// resize it to fit in the banner
+		logo = resize.Resize(BannerHeight, BannerHeight, logo, resize.Lanczos3)
+
+		draw.Draw(
+			banner,
+			image.Rectangle{
+				Min: image.Point{X: BannerWidth - BannerHeight, Y: 0},
+				Max: image.Point{X: BannerWidth, Y: BannerHeight},
+			},
+			logo,
+			image.ZP,
+			draw.Over,
+		)
+	} else {
+		return err
+	}
+
+	if ttf, err := getFont(KoverwatchFontUrl); err == nil {
+		context := freetype.NewContext()
+		context.SetFont(ttf)
+		context.SetDPI(72)
+		context.SetClip(banner.Bounds())
+		context.SetDst(banner)
+		context.SetSrc(image.White)
+
+		// print battletag, platform, and region
+		context.SetFontSize(FontSizeBattleTag)
+		if _, err = context.DrawString(
+			fmt.Sprintf("%s   %s/%s", stat.BattleTag, stat.Platform, stat.Region),
+			freetype.Pt(BannerHeight+Margin, int(context.PointToFixed(FontSizeBattleTag)>>6)),
+		); err != nil {
+			return err
+		}
+
+		// print detail,
+		context.SetFontSize(FontSizeDetail)
+		if _, err = context.DrawString(
+			stat.Detail,
+			freetype.Pt(BannerHeight+Margin, int(context.PointToFixed(BannerHeight-24+FontSizeDetail)>>6)),
+		); err != nil {
+			return err
+		}
+		// level,
+		var levelBg image.Image
+		if levelBg, err = getImage(stat.LevelImageUrl); err == nil {
+			// resize it to fit in the banner
+			levelBg = resize.Resize(BannerLevelBgSize, BannerLevelBgSize, levelBg, resize.Lanczos3)
+
+			draw.Draw(
+				banner,
+				image.Rectangle{
+					Min: image.Point{X: BannerWidth - BannerHeight*2, Y: 0},
+					Max: image.Point{X: BannerWidth - BannerHeight, Y: BannerHeight},
+				},
+				levelBg,
+				image.ZP,
+				draw.Over,
+			)
+		} else {
+			return err
+		}
+		context.SetFontSize(FontSizeLevel)
+		if _, err = context.DrawString(
+			fmt.Sprintf("%3d", stat.Level),
+			freetype.Pt(BannerWidth-BannerHeight*1.5-7, int(context.PointToFixed(BannerHeight*0.58)>>6)),
+		); err != nil {
+			return err
+		}
+		// rank (only when it exists)
+		if stat.CompetitiveRank != NoCompetitiveRank {
+			var rankIcon image.Image
+			if rankIcon, err = getImage(stat.CompetitiveRankImageUrl); err == nil {
+				// resize it to fit in the banner
+				rankIcon = resize.Resize(BannerRankIconSize, BannerRankIconSize, rankIcon, resize.Lanczos3)
+
+				draw.Draw(
+					banner,
+					image.Rectangle{
+						Min: image.Point{X: BannerWidth - BannerHeight*2 - BannerRankIconSize, Y: 0},
+						Max: image.Point{X: BannerWidth - BannerHeight*2, Y: BannerRankIconSize},
+					},
+					rankIcon,
+					image.ZP,
+					draw.Over,
+				)
+			} else {
+				return err
+			}
+			context.SetFontSize(FontSizeRank)
+			if _, err = context.DrawString(
+				fmt.Sprintf("%4d", stat.CompetitiveRank),
+				freetype.Pt(BannerWidth-BannerHeight*2.5, int(context.PointToFixed(BannerHeight*0.86)>>6)),
+			); err != nil {
+				return err
+			}
+		}
+	} else {
+		return err
+	}
+
+	// save to outFilepath
+	var file *os.File
+	if file, err = os.OpenFile(outFilepath, os.O_WRONLY|os.O_CREATE, 0640); err == nil {
+		defer file.Close()
+
+		png.Encode(file, banner)
+	}
+
+	return err
+}
+
+// read image from given url
+func getImage(url string) (image.Image, error) {
+	if res, err := http.Get(url); err == nil {
+		defer res.Body.Close()
+
+		if img, _, err := image.Decode(res.Body); err == nil {
+			return img, nil
+		} else {
+			return nil, err
+		}
+	} else {
+		return nil, err
+	}
+}
+
+// read ttf font from given url
+func getFont(url string) (*truetype.Font, error) {
+	if res, err := http.Get(url); err == nil {
+		defer res.Body.Close()
+
+		if bytes, err := ioutil.ReadAll(res.Body); err == nil {
+			if font, err := truetype.Parse(bytes); err == nil {
+				return font, nil
+			} else {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
+	} else {
+		return nil, err
+	}
 }
