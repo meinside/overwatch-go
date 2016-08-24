@@ -11,7 +11,7 @@ When it suddenly stops working, there may be some changes on the web site, so pl
 ## install
 
 ```bash
-$ go get -u github.com/meinside/overwatch-stats/...
+$ go get -u github.com/meinside/overwatch-go/...
 ```
 
 ## run command
