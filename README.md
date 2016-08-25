@@ -27,6 +27,14 @@ $ overwatch -platform pc -region kr -language "ko-kr" -battletag "meinside#3155"
 $ overwatch -region kr -language ko-kr -battletag "meinside#3155" -html -out "/tmp/test_output.html"
 ```
 
+With following command, you can generate a banner of your stat:
+
+```bash
+$ overwatch -region kr -language ko-kr -battletag "meinside#3155" -banner "/tmp/my_stat_banner.png" -quiet
+```
+
+![banner_sample](https://github.com/meinside/overwatch-go/raw/master/banner_sample.png)
+
 ## sample usage
 
 ```go
