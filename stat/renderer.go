@@ -324,8 +324,38 @@ func RenderStatToHtml(stat Stat, templateStr string) (result string, err error) 
 	return "", err
 }
 
-// render given stat to a banner in .png format
-func RenderStatToPng(stat Stat, outFilepath string) (err error) {
+// render given stat to a banner file in .png format
+func RenderStatToPngFile(stat Stat, outFilepath string) error {
+	if image, err := genBanner(stat); err == nil {
+		var file *os.File
+		if file, err = os.OpenFile(outFilepath, os.O_WRONLY|os.O_CREATE, 0640); err == nil {
+			defer file.Close()
+
+			return png.Encode(file, image)
+		} else {
+			return err
+		}
+	} else {
+		return err
+	}
+}
+
+// return bytes of generated banner in .png format
+func RenderStatToPngBytes(stat Stat) ([]byte, error) {
+	if image, err := genBanner(stat); err == nil {
+		imgBytes := new(bytes.Buffer)
+		if err := png.Encode(imgBytes, image); err == nil {
+			return imgBytes.Bytes(), nil
+		} else {
+			return []byte{}, err
+		}
+	} else {
+		return []byte{}, err
+	}
+}
+
+// generate a banner image
+func genBanner(stat Stat) (result *image.RGBA, err error) {
 	banner := image.NewRGBA(image.Rect(0, 0, BannerWidth, BannerHeight))
 
 	// fill background color (#405275)
@@ -354,7 +384,7 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 			draw.Over,
 		)
 	} else {
-		return err
+		return nil, err
 	}
 
 	// draw profile image
@@ -374,7 +404,7 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 			draw.Over,
 		)
 	} else {
-		return err
+		return nil, err
 	}
 
 	// load .ttf font
@@ -395,7 +425,7 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 				int(context.PointToFixed(FontSizeBattleTag)>>6),
 			),
 		); err != nil {
-			return err
+			return nil, err
 		}
 
 		// print detail,
@@ -407,7 +437,7 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 				int(context.PointToFixed(BannerHeight*0.88)>>6),
 			),
 		); err != nil {
-			return err
+			return nil, err
 		}
 		// level,
 		var levelBg image.Image
@@ -426,7 +456,7 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 				draw.Over,
 			)
 		} else {
-			return err
+			return nil, err
 		}
 		context.SetFontSize(FontSizeLevel)
 		if _, err = context.DrawString(
@@ -436,7 +466,7 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 				int(context.PointToFixed(BannerHeight*0.58)>>6),
 			),
 		); err != nil {
-			return err
+			return nil, err
 		}
 		// rank (only when it exists)
 		if stat.CompetitiveRank != NoCompetitiveRank {
@@ -456,7 +486,7 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 					draw.Over,
 				)
 			} else {
-				return err
+				return nil, err
 			}
 			context.SetFontSize(FontSizeRank)
 			if _, err = context.DrawString(
@@ -466,22 +496,13 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 					int(context.PointToFixed(BannerHeight*0.86)>>6),
 				),
 			); err != nil {
-				return err
+				return nil, err
 			}
 		}
+		return banner, nil
 	} else {
-		return err
+		return nil, err
 	}
-
-	// save to outFilepath
-	var file *os.File
-	if file, err = os.OpenFile(outFilepath, os.O_WRONLY|os.O_CREATE, 0640); err == nil {
-		defer file.Close()
-
-		png.Encode(file, banner)
-	}
-
-	return err
 }
 
 // read image from given url

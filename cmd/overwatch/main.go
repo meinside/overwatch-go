@@ -84,7 +84,7 @@ func main() {
 
 					// if requested, create a banner file
 					if *bannerFile != "" {
-						if stat.RenderStatToPng(result, *bannerFile); err != nil {
+						if stat.RenderStatToPngFile(result, *bannerFile); err != nil {
 							fmt.Printf("* Failed to create a banner file: %s\n", err)
 						}
 					}
