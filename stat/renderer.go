@@ -294,21 +294,21 @@ const (
 )
 
 const (
-	BannerWidth        = 468
-	BannerHeight       = 60
-	Margin             = 5
-	BannerLevelBgSize  = 60
-	BannerRankIconSize = 42
+	BannerWidth        = 320
+	BannerHeight       = 50
+	Margin             = 4
+	BannerLevelBgSize  = 50
+	BannerRankIconSize = 35
 
 	BannerLogoFilename    = "etc/overwatch60x60.png"
 	OverwatchLogoImageUrl = "https://github.com/meinside/overwatch-go/raw/master/overwatch_logo.png"
 
 	KoverwatchFontUrl = "http://kr.battle.net/forums/static/fonts/koverwatch/koverwatch.ttf"
 
-	FontSizeBattleTag float64 = 21.0
-	FontSizeDetail    float64 = 15.0
-	FontSizeLevel     float64 = 12.0
-	FontSizeRank      float64 = 12.0
+	FontSizeBattleTag float64 = 17.0
+	FontSizeDetail    float64 = 13.0
+	FontSizeLevel     float64 = 11.0
+	FontSizeRank      float64 = 11.0
 )
 
 // render given stat to .html format, using template
@@ -336,26 +336,6 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 		draw.Src,
 	)
 
-	// draw profile image
-	var profile image.Image
-	if profile, err = getImage(stat.ProfileImageUrl); err == nil {
-		// resize it to fit in the banner
-		profile = resize.Resize(BannerHeight, BannerHeight, profile, resize.Lanczos3)
-
-		draw.Draw(
-			banner,
-			image.Rectangle{
-				Min: image.Point{X: 0, Y: 0},
-				Max: image.Point{X: BannerHeight, Y: BannerHeight},
-			},
-			profile,
-			image.ZP,
-			draw.Over,
-		)
-	} else {
-		return err
-	}
-
 	// draw logo image
 	var logo image.Image
 	if logo, err = getImage(OverwatchLogoImageUrl); err == nil {
@@ -365,8 +345,8 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 		draw.Draw(
 			banner,
 			image.Rectangle{
-				Min: image.Point{X: BannerWidth - BannerHeight, Y: 0},
-				Max: image.Point{X: BannerWidth, Y: BannerHeight},
+				Min: image.Point{X: 0, Y: 0},
+				Max: image.Point{X: BannerHeight, Y: BannerHeight},
 			},
 			logo,
 			image.ZP,
@@ -376,6 +356,27 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 		return err
 	}
 
+	// draw profile image
+	var profile image.Image
+	if profile, err = getImage(stat.ProfileImageUrl); err == nil {
+		// resize it to fit in the banner
+		profile = resize.Resize(BannerHeight, BannerHeight, profile, resize.Lanczos3)
+
+		draw.Draw(
+			banner,
+			image.Rectangle{
+				Min: image.Point{X: BannerWidth - BannerHeight, Y: 0},
+				Max: image.Point{X: BannerWidth, Y: BannerHeight},
+			},
+			profile,
+			image.ZP,
+			draw.Over,
+		)
+	} else {
+		return err
+	}
+
+	// load .ttf font
 	if ttf, err := getFont(KoverwatchFontUrl); err == nil {
 		context := freetype.NewContext()
 		context.SetFont(ttf)
@@ -387,8 +388,11 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 		// print battletag, platform, and region
 		context.SetFontSize(FontSizeBattleTag)
 		if _, err = context.DrawString(
-			fmt.Sprintf("%s   %s/%s", stat.BattleTag, stat.Platform, stat.Region),
-			freetype.Pt(BannerHeight+Margin, int(context.PointToFixed(FontSizeBattleTag)>>6)),
+			fmt.Sprintf("%s  %s/%s", stat.BattleTag, stat.Platform, stat.Region),
+			freetype.Pt(
+				int(BannerHeight+Margin),
+				int(context.PointToFixed(FontSizeBattleTag)>>6),
+			),
 		); err != nil {
 			return err
 		}
@@ -397,14 +401,17 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 		context.SetFontSize(FontSizeDetail)
 		if _, err = context.DrawString(
 			stat.Detail,
-			freetype.Pt(BannerHeight+Margin, int(context.PointToFixed(BannerHeight-24+FontSizeDetail)>>6)),
+			freetype.Pt(
+				BannerHeight+Margin,
+				int(context.PointToFixed(BannerHeight*0.88)>>6),
+			),
 		); err != nil {
 			return err
 		}
 		// level,
 		var levelBg image.Image
 		if levelBg, err = getImage(stat.LevelImageUrl); err == nil {
-			// resize it to fit in the banner
+			// load and resize level bg to fit in the banner
 			levelBg = resize.Resize(BannerLevelBgSize, BannerLevelBgSize, levelBg, resize.Lanczos3)
 
 			draw.Draw(
@@ -423,7 +430,10 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 		context.SetFontSize(FontSizeLevel)
 		if _, err = context.DrawString(
 			fmt.Sprintf("%3d", stat.Level),
-			freetype.Pt(BannerWidth-BannerHeight*1.5-7, int(context.PointToFixed(BannerHeight*0.58)>>6)),
+			freetype.Pt(
+				int(BannerWidth-BannerHeight*1.64),
+				int(context.PointToFixed(BannerHeight*0.58)>>6),
+			),
 		); err != nil {
 			return err
 		}
@@ -450,7 +460,10 @@ func RenderStatToPng(stat Stat, outFilepath string) (err error) {
 			context.SetFontSize(FontSizeRank)
 			if _, err = context.DrawString(
 				fmt.Sprintf("%4d", stat.CompetitiveRank),
-				freetype.Pt(BannerWidth-BannerHeight*2.5, int(context.PointToFixed(BannerHeight*0.86)>>6)),
+				freetype.Pt(
+					int(BannerWidth-BannerHeight*2.52),
+					int(context.PointToFixed(BannerHeight*0.86)>>6),
+				),
 			); err != nil {
 				return err
 			}
