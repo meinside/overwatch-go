@@ -294,21 +294,22 @@ const (
 )
 
 const (
+	// positions and sizes on banner
 	BannerWidth        = 320
 	BannerHeight       = 50
 	Margin             = 4
 	BannerLevelBgSize  = 50
 	BannerRankIconSize = 35
 
-	BannerLogoFilename    = "etc/overwatch60x60.png"
-	OverwatchLogoImageUrl = "https://github.com/meinside/overwatch-go/raw/master/overwatch_logo.png"
-
-	KoverwatchFontUrl = "http://kr.battle.net/forums/static/fonts/koverwatch/koverwatch.ttf"
-
+	// font sizes
 	FontSizeBattleTag float64 = 17.0
 	FontSizeDetail    float64 = 13.0
 	FontSizeLevel     float64 = 11.0
 	FontSizeRank      float64 = 11.0
+
+	// file urls
+	OverwatchLogoImageUrl = "https://github.com/meinside/overwatch-go/raw/master/overwatch_logo.png"
+	KoverwatchFontUrl     = "http://kr.battle.net/forums/static/fonts/koverwatch/koverwatch.ttf"
 )
 
 // render given stat to .html format, using template
