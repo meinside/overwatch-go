@@ -4,7 +4,7 @@
 
 Codes for fetching play stats of [Overwatch™](https://playoverwatch.com).
 
-Stats are crawled from [Blizzard](https://www.blizzard.com)'s official site, and parsed with [Gokogiri](https://github.com/jbowtie/gokogiri).
+Stats are crawled from [Blizzard](https://www.blizzard.com)'s official site, and parsed with [goquery](https://github.com/PuerkitoBio/goquery).
 
 The result is rendered into JSON format, so it can be used easily in other applications or services.
 

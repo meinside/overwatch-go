@@ -2,20 +2,11 @@ package stat
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net/http"
 	"strconv"
 	"strings"
 
-	// $ sudo apt-get install libxml2-dev libonig-dev
-	//
-	// XXX - https://github.com/moovweb/gokogiri/issues/92
-	// $ go get -u github.com/jbowtie/gokogiri
-	"github.com/jbowtie/gokogiri"
-	"github.com/jbowtie/gokogiri/css"
-	"github.com/jbowtie/gokogiri/html"
-	"github.com/jbowtie/gokogiri/xml"
+	"github.com/PuerkitoBio/goquery"
 )
 
 const (
@@ -27,30 +18,6 @@ const (
 )
 
 var Verbose bool = false
-
-// get bytes using HTTP GET
-func httpGet(url string) (bytes []byte, err error) {
-	client := &http.Client{}
-
-	var req *http.Request
-	var res *http.Response
-
-	if req, err = http.NewRequest("GET", url, nil); err == nil {
-		req.Header.Set("User-Agent", FakeUserAgent)
-
-		if res, err = client.Do(req); err == nil {
-			defer res.Body.Close()
-
-			if res.StatusCode == 200 {
-				bytes, err = ioutil.ReadAll(res.Body)
-			} else {
-				err = fmt.Errorf("HTTP %d on GET request for: %s", res.StatusCode, url)
-			}
-		}
-	}
-
-	return bytes, err
-}
 
 // fetch given user's stat from official overwatch site.
 //
@@ -68,172 +35,167 @@ func FetchStat(battleTagString string, battleTagNumber int, platform, region, la
 		log.Printf("> fetching from url: %s\n", url)
 	}
 
-	// fetch html content,
-	var bytes []byte
-	bytes, err = httpGet(url)
+	// fetch html document,
+	var doc *goquery.Document
+	doc, err = goquery.NewDocument(url)
 	if err != nil {
 		return Stat{}, err
 	}
 
 	if Verbose {
-		log.Printf("> received html: %s\n", string(bytes))
+		log.Printf("> received html document: %+v\n", doc)
 	}
 
 	// parse it and assign to struct
-	return parseStat(bytes, battleTagString, battleTagNumber, platform, region)
+	return parseStat(doc, battleTagString, battleTagNumber, platform, region)
 }
 
 // parse stat from html bytes
 //
 // XXX - if it stops working, should check the html response and alter css selectors
-func parseStat(bytes []byte, battleTagString string, battleTagNumber int, platform, region string) (result Stat, err error) {
-	var doc *html.HtmlDocument
-	if doc, err = gokogiri.ParseHtml(bytes); err == nil {
-		defer doc.Free()
-
-		////////////////
-		// [info]
-		//
-		var name string
-		if name, err = extractString(doc, "div.masthead-player > h1.header-masthead"); err != nil {
+func parseStat(doc *goquery.Document, battleTagString string, battleTagNumber int, platform, region string) (result Stat, err error) {
+	////////////////
+	// [info]
+	//
+	var name string
+	if name, err = extractString(doc, "div.masthead-player > h1.header-masthead"); err != nil {
+		return Stat{}, err
+	}
+	var profileImageUrl string
+	if profileImageUrl, err = extractFirstAttrString(doc, "div.masthead-player > img.player-portrait", "src"); err != nil {
+		return Stat{}, err
+	}
+	var level int32
+	if level, err = extractInt32(doc, "div.player-level > div"); err != nil {
+		return Stat{}, err
+	}
+	var levelImageUrl string
+	if levelImageUrl, err = extractFirstAttrString(doc, "div.player-level", "style"); err != nil {
+		return Stat{}, err
+	} else {
+		// XXX - strip background-image:url(...)
+		if strings.HasPrefix(levelImageUrl, "background-image:url(") {
+			levelImageUrl = strings.TrimLeft(levelImageUrl, "background-image:url(")
+		}
+		if strings.HasSuffix(levelImageUrl, ")") {
+			levelImageUrl = strings.TrimRight(levelImageUrl, ")")
+		}
+	}
+	var competitiveRank int32
+	if competitiveRank, err = extractInt32(doc, "div.competitive-rank > div"); err != nil {
+		competitiveRank = NoCompetitiveRank
+	}
+	var competitiveRankImageUrl string
+	competitiveRankImageUrl, _ = extractFirstAttrString(doc, "div.competitive-rank > img", "src")
+	var detail string
+	if detail, err = extractString(doc, "div.masthead > p.masthead-detail > span"); err != nil {
+		return Stat{}, err
+	}
+	//
+	////////////////
+	// [stats] quick play
+	//
+	var featuredStats map[string]string
+	var topHeroes map[string][]Hero
+	var careerStats []CareerStat
+	if featuredStats, topHeroes, careerStats, err = extractPlayStat(doc, TagIdQuickPlay); err != nil {
+		return Stat{}, err
+	}
+	quickPlayStat := PlayStat{
+		FeaturedStats: featuredStats,
+		TopHeroes:     topHeroes,
+		CareerStats:   careerStats,
+	}
+	//
+	// [stats] competitive play
+	//
+	var competitivePlayStat PlayStat
+	if competitiveRank != NoCompetitiveRank {
+		if featuredStats, topHeroes, careerStats, err = extractPlayStat(doc, TagIdCompetitivePlay); err != nil {
 			return Stat{}, err
 		}
-		var profileImageUrl string
-		if profileImageUrl, err = extractFirstAttrString(doc, "div.masthead-player > img.player-portrait", "src"); err != nil {
-			return Stat{}, err
-		}
-		var level int32
-		if level, err = extractInt32(doc, "div.player-level > div"); err != nil {
-			return Stat{}, err
-		}
-		var levelImageUrl string
-		if levelImageUrl, err = extractFirstAttrString(doc, "div.player-level", "style"); err != nil {
-			return Stat{}, err
-		} else {
-			// XXX - strip background-image:url(...)
-			if strings.HasPrefix(levelImageUrl, "background-image:url(") {
-				levelImageUrl = strings.TrimLeft(levelImageUrl, "background-image:url(")
-			}
-			if strings.HasSuffix(levelImageUrl, ")") {
-				levelImageUrl = strings.TrimRight(levelImageUrl, ")")
-			}
-		}
-		var competitiveRank int32
-		if competitiveRank, err = extractInt32(doc, "div.competitive-rank > div"); err != nil {
-			competitiveRank = NoCompetitiveRank
-		}
-		var competitiveRankImageUrl string
-		competitiveRankImageUrl, _ = extractFirstAttrString(doc, "div.competitive-rank > img", "src")
-		var detail string
-		if detail, err = extractString(doc, "div.masthead > p.masthead-detail > span"); err != nil {
-			return Stat{}, err
-		}
-		//
-		////////////////
-		// [stats] quick play
-		//
-		var featuredStats map[string]string
-		var topHeroes map[string][]Hero
-		var careerStats []CareerStat
-		if featuredStats, topHeroes, careerStats, err = extractPlayStat(doc, TagIdQuickPlay); err != nil {
-			return Stat{}, err
-		}
-		quickPlayStat := PlayStat{
+		competitivePlayStat = PlayStat{
 			FeaturedStats: featuredStats,
 			TopHeroes:     topHeroes,
 			CareerStats:   careerStats,
 		}
-		//
-		// [stats] competitive play
-		//
-		var competitivePlayStat PlayStat
-		if competitiveRank != NoCompetitiveRank {
-			if featuredStats, topHeroes, careerStats, err = extractPlayStat(doc, TagIdCompetitivePlay); err != nil {
-				return Stat{}, err
-			}
-			competitivePlayStat = PlayStat{
-				FeaturedStats: featuredStats,
-				TopHeroes:     topHeroes,
-				CareerStats:   careerStats,
-			}
-		} else {
-			competitivePlayStat = PlayStat{}
-		}
-		//
-		////////////////
-		// achievements
-		//
-		achievements := []AchievementCategory{}
-		var achievementCategoryNames []string
-		if achievementCategoryNames, err = extractStrings(doc, "#achievements-section select > option"); err != nil {
+	} else {
+		competitivePlayStat = PlayStat{}
+	}
+	//
+	////////////////
+	// achievements
+	//
+	achievements := []AchievementCategory{}
+	var achievementCategoryNames []string
+	if achievementCategoryNames, err = extractStrings(doc, "#achievements-section select > option"); err != nil {
+		return Stat{}, err
+	}
+	for i, categoryName := range achievementCategoryNames {
+		var urls, titles, descriptions, classes []string
+
+		// achieved/non-achieved achievements
+		achieved := []Achievement{}
+		nonAchieved := []Achievement{}
+		if urls, err = extractAttrStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) > ul div.achievement-card > img", i+1), "src"); err != nil {
 			return Stat{}, err
 		}
-		for i, categoryName := range achievementCategoryNames {
-			var urls, titles, descriptions, classes []string
-
-			// achieved/non-achieved achievements
-			achieved := []Achievement{}
-			nonAchieved := []Achievement{}
-			if urls, err = extractAttrStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) > ul div.achievement-card > img", i+1), "src"); err != nil {
-				return Stat{}, err
+		if titles, err = extractStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) div.tooltip-tip > h6", i+1)); err != nil {
+			return Stat{}, err
+		}
+		if descriptions, err = extractStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) div.tooltip-tip > p", i+1)); err != nil {
+			return Stat{}, err
+		}
+		if classes, err = extractAttrStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) > ul div.achievement-card", i+1), "class"); err != nil {
+			return Stat{}, err
+		}
+		for i, class := range classes {
+			if strings.Contains(class, "m-disabled") { // m-disabled: non-achieved achievement
+				nonAchieved = append(nonAchieved, Achievement{
+					Title:       titles[i],
+					Description: descriptions[i],
+					ImageUrl:    urls[i],
+				})
+			} else {
+				achieved = append(achieved, Achievement{
+					Title:       titles[i],
+					Description: descriptions[i],
+					ImageUrl:    urls[i],
+				})
 			}
-			if titles, err = extractStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) div.tooltip-tip > h6", i+1)); err != nil {
-				return Stat{}, err
-			}
-			if descriptions, err = extractStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) div.tooltip-tip > p", i+1)); err != nil {
-				return Stat{}, err
-			}
-			if classes, err = extractAttrStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) > ul div.achievement-card", i+1), "class"); err != nil {
-				return Stat{}, err
-			}
-			for i, class := range classes {
-				if strings.Contains(class, "m-disabled") { // m-disabled: non-achieved achievement
-					nonAchieved = append(nonAchieved, Achievement{
-						Title:       titles[i],
-						Description: descriptions[i],
-						ImageUrl:    urls[i],
-					})
-				} else {
-					achieved = append(achieved, Achievement{
-						Title:       titles[i],
-						Description: descriptions[i],
-						ImageUrl:    urls[i],
-					})
-				}
-			}
-
-			achievements = append(achievements, AchievementCategory{
-				Name:        categoryName,
-				Achieved:    achieved,
-				NonAchieved: nonAchieved,
-			})
 		}
 
-		// return result
-		return Stat{
-			BattleTag: fmt.Sprintf("%s#%d", battleTagString, battleTagNumber),
-			Platform:  platform,
-			Region:    region,
-
-			Name:                    name,
-			ProfileImageUrl:         profileImageUrl,
-			Level:                   level,
-			LevelImageUrl:           levelImageUrl,
-			CompetitiveRank:         competitiveRank,
-			CompetitiveRankImageUrl: competitiveRankImageUrl,
-			Detail:                  detail,
-
-			QuickPlay:       quickPlayStat,
-			CompetitivePlay: competitivePlayStat,
-
-			Achievements: achievements,
-		}, err
+		achievements = append(achievements, AchievementCategory{
+			Name:        categoryName,
+			Achieved:    achieved,
+			NonAchieved: nonAchieved,
+		})
 	}
+
+	// return result
+	return Stat{
+		BattleTag: fmt.Sprintf("%s#%d", battleTagString, battleTagNumber),
+		Platform:  platform,
+		Region:    region,
+
+		Name:                    name,
+		ProfileImageUrl:         profileImageUrl,
+		Level:                   level,
+		LevelImageUrl:           levelImageUrl,
+		CompetitiveRank:         competitiveRank,
+		CompetitiveRankImageUrl: competitiveRankImageUrl,
+		Detail:                  detail,
+
+		QuickPlay:       quickPlayStat,
+		CompetitivePlay: competitivePlayStat,
+
+		Achievements: achievements,
+	}, err
 
 	return Stat{}, err
 }
 
-func extractPlayStat(doc *html.HtmlDocument, id TagId) (featuredStats map[string]string, topHeroes map[string][]Hero, careerStats []CareerStat, err error) {
+func extractPlayStat(doc *goquery.Document, id TagId) (featuredStats map[string]string, topHeroes map[string][]Hero, careerStats []CareerStat, err error) {
 	featuredStats = make(map[string]string)
 	topHeroes = make(map[string][]Hero)
 	careerStats = []CareerStat{}
@@ -330,7 +292,7 @@ func extractPlayStat(doc *html.HtmlDocument, id TagId) (featuredStats map[string
 	return featuredStats, topHeroes, careerStats, nil
 }
 
-func extractInt32(doc *html.HtmlDocument, selector string) (int32, error) {
+func extractInt32(doc *goquery.Document, selector string) (int32, error) {
 	if s, err := extractString(doc, selector); err == nil {
 		if i, err := strconv.ParseInt(strings.Replace(s, ",", "", -1), 10, 32); err == nil { // XXX - remove unwanted ','
 			return int32(i), nil
@@ -342,7 +304,7 @@ func extractInt32(doc *html.HtmlDocument, selector string) (int32, error) {
 	}
 }
 
-func extractInt64(doc *html.HtmlDocument, selector string) (int64, error) {
+func extractInt64(doc *goquery.Document, selector string) (int64, error) {
 	if s, err := extractString(doc, selector); err == nil {
 		return strconv.ParseInt(strings.Replace(s, ",", "", -1), 10, 64) // XXX - remove unwanted ','
 	} else {
@@ -350,7 +312,7 @@ func extractInt64(doc *html.HtmlDocument, selector string) (int64, error) {
 	}
 }
 
-func extractFloat32(doc *html.HtmlDocument, selector string) (float32, error) {
+func extractFloat32(doc *goquery.Document, selector string) (float32, error) {
 	if s, err := extractString(doc, selector); err == nil {
 		if f, err := strconv.ParseFloat(s, 32); err == nil {
 			return float32(f), nil
@@ -362,70 +324,68 @@ func extractFloat32(doc *html.HtmlDocument, selector string) (float32, error) {
 	}
 }
 
-func extractString(doc *html.HtmlDocument, selector string) (string, error) {
-	xpath := css.Convert(selector, css.GLOBAL)
+func extractString(doc *goquery.Document, selector string) (string, error) {
+	var result string
+	exists := false
 
-	if searched, err := doc.Search(xpath); err == nil {
-		if len(searched) > 0 {
-			return searched[0].Content(), nil // take the first one, html tags removed
-		} else {
-			return "", fmt.Errorf("no such element with selector: %s", selector)
-		}
+	doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+		result = s.Text()
+		exists = true
+		return
+	})
+
+	if exists {
+		return result, nil
 	} else {
-		return "", err
+		return "", fmt.Errorf("no such element with selector: %s", selector)
 	}
 }
 
-func extractStrings(doc *html.HtmlDocument, selector string) ([]string, error) {
+func extractStrings(doc *goquery.Document, selector string) ([]string, error) {
 	strs := []string{}
-	xpath := css.Convert(selector, css.GLOBAL)
 
-	if searched, err := doc.Search(xpath); err == nil {
-		if len(searched) > 0 {
-			for _, s := range searched {
-				strs = append(strs, s.Content())
-			}
-			return strs, nil // return all elements, html tags removed
-		} else {
-			return strs, fmt.Errorf("no such element with selector: %s", selector)
-		}
+	doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+		strs = append(strs, s.Text())
+	})
+
+	if len(strs) > 0 {
+		return strs, nil // return all elements, html tags removed
 	} else {
-		return strs, err
+		return strs, fmt.Errorf("no such element with selector: %s", selector)
 	}
 }
 
 // get html attributes for elements with given selector
-func extractAttrStrings(doc *html.HtmlDocument, selector, attrName string) (attrs []string, err error) {
-	xpath := css.Convert(selector, css.GLOBAL)
+func extractAttrStrings(doc *goquery.Document, selector, attrName string) ([]string, error) {
+	attrs := []string{}
 
-	var searched []xml.Node
-	if searched, err = doc.Search(xpath); err == nil {
-		for _, s := range searched {
-			a := s.Attr(attrName)
-
-			attrs = append(attrs, a)
+	doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+		if attr, exists := s.Attr(attrName); exists {
+			attrs = append(attrs, attr)
 		}
+	})
 
-		if len(attrs) <= 0 {
-			return attrs, fmt.Errorf("no such element with selector: %s, attrname: %s", selector, attrName)
-		}
+	if len(attrs) > 0 {
+		return attrs, nil
+	} else {
+		return []string{}, fmt.Errorf("no such attr with selector: %s, attrname: %s", selector, attrName)
 	}
-
-	return attrs, err
 }
 
 // get html attribute for the first element with given selector
-func extractFirstAttrString(doc *html.HtmlDocument, selector, attrName string) (attr string, err error) {
-	xpath := css.Convert(selector, css.GLOBAL)
+func extractFirstAttrString(doc *goquery.Document, selector, attrName string) (string, error) {
+	var attr string
+	exists := false
 
-	var searched []xml.Node
-	if searched, err = doc.Search(xpath); err == nil {
-		if len(searched) > 0 {
-			attr = searched[0].Attr(attrName)
-		} else {
-			err = fmt.Errorf("no such attribute: %s with selector: %s", attrName, selector)
+	doc.Find(selector).Each(func(i int, s *goquery.Selection) {
+		if attr, exists = s.Attr(attrName); exists {
+			return
 		}
-	}
+	})
 
-	return attr, err
+	if exists {
+		return attr, nil
+	} else {
+		return "", fmt.Errorf("no such attr with selector: %s, attrname: %s", selector, attrName)
+	}
 }
