@@ -124,7 +124,7 @@ func parseStat(doc *goquery.Document, battleTagString string, battleTagNumber in
 	}
 	//
 	////////////////
-	// achievements
+	// [achievements]
 	//
 	achievements := []AchievementCategory{}
 	var achievementCategoryNames []string

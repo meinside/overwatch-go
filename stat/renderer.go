@@ -325,8 +325,11 @@ func RenderStatToHtml(stat Stat, templateStr string) (result string, err error) 
 }
 
 // render given stat to a banner file in .png format
-func RenderStatToPngFile(stat Stat, outFilepath string) error {
-	if image, err := genBanner(stat); err == nil {
+//
+// - when logo is nil: it will be loaded from OverwatchLogoImageUrl
+// - when font is nil: it will be loaded from KoverwatchFontUrl
+func RenderStatToPngFile(stat Stat, logo image.Image, font *truetype.Font, outFilepath string) error {
+	if image, err := genBanner(stat, logo, font); err == nil {
 		var file *os.File
 		if file, err = os.OpenFile(outFilepath, os.O_WRONLY|os.O_CREATE, 0640); err == nil {
 			defer file.Close()
@@ -341,8 +344,11 @@ func RenderStatToPngFile(stat Stat, outFilepath string) error {
 }
 
 // return bytes of generated banner in .png format
-func RenderStatToPngBytes(stat Stat) ([]byte, error) {
-	if image, err := genBanner(stat); err == nil {
+//
+// - when logo is nil: it will be loaded from OverwatchLogoImageUrl
+// - when font is nil: it will be loaded from KoverwatchFontUrl
+func RenderStatToPngBytes(stat Stat, logo image.Image, font *truetype.Font) ([]byte, error) {
+	if image, err := genBanner(stat, logo, font); err == nil {
 		imgBytes := new(bytes.Buffer)
 		if err := png.Encode(imgBytes, image); err == nil {
 			return imgBytes.Bytes(), nil
@@ -355,7 +361,7 @@ func RenderStatToPngBytes(stat Stat) ([]byte, error) {
 }
 
 // generate a banner image
-func genBanner(stat Stat) (result *image.RGBA, err error) {
+func genBanner(stat Stat, logo image.Image, font *truetype.Font) (result *image.RGBA, err error) {
 	banner := image.NewRGBA(image.Rect(0, 0, BannerWidth, BannerHeight))
 
 	// fill background color (#405275)
@@ -367,142 +373,148 @@ func genBanner(stat Stat) (result *image.RGBA, err error) {
 		draw.Src,
 	)
 
-	// draw logo image
-	var logo image.Image
-	if logo, err = getImage(OverwatchLogoImageUrl); err == nil {
-		// resize it to fit in the banner
-		logo = resize.Resize(BannerHeight, BannerHeight, logo, resize.Lanczos3)
+	// load logo image
+	if logo == nil {
+		if logo, err = getImage(OverwatchLogoImageUrl); err != nil {
+			return nil, err
+		}
+	}
 
-		draw.Draw(
-			banner,
-			image.Rectangle{
-				Min: image.Point{X: 0, Y: 0},
-				Max: image.Point{X: BannerHeight, Y: BannerHeight},
-			},
-			logo,
-			image.ZP,
-			draw.Over,
-		)
-	} else {
+	// resize logo image to fit in the banner
+	logo = resize.Resize(BannerHeight, BannerHeight, logo, resize.Lanczos3)
+
+	// draw logo image
+	draw.Draw(
+		banner,
+		image.Rectangle{
+			Min: image.Point{X: 0, Y: 0},
+			Max: image.Point{X: BannerHeight, Y: BannerHeight},
+		},
+		logo,
+		image.ZP,
+		draw.Over,
+	)
+
+	// load profile image from url
+	var profile image.Image
+	if profile, err = getImage(stat.ProfileImageUrl); err != nil {
 		return nil, err
 	}
+
+	// resize profile image to fit in the banner
+	profile = resize.Resize(BannerHeight, BannerHeight, profile, resize.Lanczos3)
 
 	// draw profile image
-	var profile image.Image
-	if profile, err = getImage(stat.ProfileImageUrl); err == nil {
-		// resize it to fit in the banner
-		profile = resize.Resize(BannerHeight, BannerHeight, profile, resize.Lanczos3)
+	draw.Draw(
+		banner,
+		image.Rectangle{
+			Min: image.Point{X: BannerWidth - BannerHeight, Y: 0},
+			Max: image.Point{X: BannerWidth, Y: BannerHeight},
+		},
+		profile,
+		image.ZP,
+		draw.Over,
+	)
+
+	// load .ttf font
+	if font == nil {
+		if font, err = getFont(KoverwatchFontUrl); err != nil {
+			return nil, err
+		}
+	}
+
+	// setup context
+	context := freetype.NewContext()
+	context.SetFont(font)
+	context.SetDPI(72)
+	context.SetClip(banner.Bounds())
+	context.SetDst(banner)
+	context.SetSrc(image.White)
+
+	// print battletag, platform, and region
+	context.SetFontSize(FontSizeBattleTag)
+	if _, err = context.DrawString(
+		fmt.Sprintf("%s  %s/%s", stat.BattleTag, stat.Platform, stat.Region),
+		freetype.Pt(
+			int(BannerHeight+Margin),
+			int(context.PointToFixed(FontSizeBattleTag)>>6),
+		),
+	); err != nil {
+		return nil, err
+	}
+
+	// print detail,
+	context.SetFontSize(FontSizeDetail)
+	if _, err = context.DrawString(
+		stat.Detail,
+		freetype.Pt(
+			BannerHeight+Margin,
+			int(context.PointToFixed(BannerHeight*0.88)>>6),
+		),
+	); err != nil {
+		return nil, err
+	}
+	// level,
+	var levelBg image.Image
+	if levelBg, err = getImage(stat.LevelImageUrl); err == nil {
+		// load and resize level bg to fit in the banner
+		levelBg = resize.Resize(BannerLevelBgSize, BannerLevelBgSize, levelBg, resize.Lanczos3)
 
 		draw.Draw(
 			banner,
 			image.Rectangle{
-				Min: image.Point{X: BannerWidth - BannerHeight, Y: 0},
-				Max: image.Point{X: BannerWidth, Y: BannerHeight},
+				Min: image.Point{X: BannerWidth - BannerHeight*2, Y: 0},
+				Max: image.Point{X: BannerWidth - BannerHeight, Y: BannerHeight},
 			},
-			profile,
+			levelBg,
 			image.ZP,
 			draw.Over,
 		)
 	} else {
 		return nil, err
 	}
-
-	// load .ttf font
-	if ttf, err := getFont(KoverwatchFontUrl); err == nil {
-		context := freetype.NewContext()
-		context.SetFont(ttf)
-		context.SetDPI(72)
-		context.SetClip(banner.Bounds())
-		context.SetDst(banner)
-		context.SetSrc(image.White)
-
-		// print battletag, platform, and region
-		context.SetFontSize(FontSizeBattleTag)
-		if _, err = context.DrawString(
-			fmt.Sprintf("%s  %s/%s", stat.BattleTag, stat.Platform, stat.Region),
-			freetype.Pt(
-				int(BannerHeight+Margin),
-				int(context.PointToFixed(FontSizeBattleTag)>>6),
-			),
-		); err != nil {
-			return nil, err
-		}
-
-		// print detail,
-		context.SetFontSize(FontSizeDetail)
-		if _, err = context.DrawString(
-			stat.Detail,
-			freetype.Pt(
-				BannerHeight+Margin,
-				int(context.PointToFixed(BannerHeight*0.88)>>6),
-			),
-		); err != nil {
-			return nil, err
-		}
-		// level,
-		var levelBg image.Image
-		if levelBg, err = getImage(stat.LevelImageUrl); err == nil {
-			// load and resize level bg to fit in the banner
-			levelBg = resize.Resize(BannerLevelBgSize, BannerLevelBgSize, levelBg, resize.Lanczos3)
+	context.SetFontSize(FontSizeLevel)
+	if _, err = context.DrawString(
+		fmt.Sprintf("%3d", stat.Level),
+		freetype.Pt(
+			int(BannerWidth-BannerHeight*1.64),
+			int(context.PointToFixed(BannerHeight*0.58)>>6),
+		),
+	); err != nil {
+		return nil, err
+	}
+	// rank (only when it exists)
+	if stat.CompetitiveRank != NoCompetitiveRank {
+		var rankIcon image.Image
+		if rankIcon, err = getImage(stat.CompetitiveRankImageUrl); err == nil {
+			// resize it to fit in the banner
+			rankIcon = resize.Resize(BannerRankIconSize, BannerRankIconSize, rankIcon, resize.Lanczos3)
 
 			draw.Draw(
 				banner,
 				image.Rectangle{
-					Min: image.Point{X: BannerWidth - BannerHeight*2, Y: 0},
-					Max: image.Point{X: BannerWidth - BannerHeight, Y: BannerHeight},
+					Min: image.Point{X: BannerWidth - BannerHeight*2 - BannerRankIconSize, Y: 0},
+					Max: image.Point{X: BannerWidth - BannerHeight*2, Y: BannerRankIconSize},
 				},
-				levelBg,
+				rankIcon,
 				image.ZP,
 				draw.Over,
 			)
 		} else {
 			return nil, err
 		}
-		context.SetFontSize(FontSizeLevel)
+		context.SetFontSize(FontSizeRank)
 		if _, err = context.DrawString(
-			fmt.Sprintf("%3d", stat.Level),
+			fmt.Sprintf("%4d", stat.CompetitiveRank),
 			freetype.Pt(
-				int(BannerWidth-BannerHeight*1.64),
-				int(context.PointToFixed(BannerHeight*0.58)>>6),
+				int(BannerWidth-BannerHeight*2.52),
+				int(context.PointToFixed(BannerHeight*0.86)>>6),
 			),
 		); err != nil {
 			return nil, err
 		}
-		// rank (only when it exists)
-		if stat.CompetitiveRank != NoCompetitiveRank {
-			var rankIcon image.Image
-			if rankIcon, err = getImage(stat.CompetitiveRankImageUrl); err == nil {
-				// resize it to fit in the banner
-				rankIcon = resize.Resize(BannerRankIconSize, BannerRankIconSize, rankIcon, resize.Lanczos3)
-
-				draw.Draw(
-					banner,
-					image.Rectangle{
-						Min: image.Point{X: BannerWidth - BannerHeight*2 - BannerRankIconSize, Y: 0},
-						Max: image.Point{X: BannerWidth - BannerHeight*2, Y: BannerRankIconSize},
-					},
-					rankIcon,
-					image.ZP,
-					draw.Over,
-				)
-			} else {
-				return nil, err
-			}
-			context.SetFontSize(FontSizeRank)
-			if _, err = context.DrawString(
-				fmt.Sprintf("%4d", stat.CompetitiveRank),
-				freetype.Pt(
-					int(BannerWidth-BannerHeight*2.52),
-					int(context.PointToFixed(BannerHeight*0.86)>>6),
-				),
-			); err != nil {
-				return nil, err
-			}
-		}
-		return banner, nil
-	} else {
-		return nil, err
 	}
+	return banner, nil
 }
 
 // read image from given url
