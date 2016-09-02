@@ -81,6 +81,16 @@ func parseStat(doc *goquery.Document, battleTagString string, battleTagNumber in
 			levelImageUrl = strings.TrimRight(levelImageUrl, ")")
 		}
 	}
+	var levelStarImageUrl string
+	if levelStarImageUrl, err = extractFirstAttrString(doc, "div.player-level > div.player-rank", "style"); err == nil {
+		// XXX - strip background-image:url(...)
+		if strings.HasPrefix(levelStarImageUrl, "background-image:url(") {
+			levelStarImageUrl = strings.TrimLeft(levelStarImageUrl, "background-image:url(")
+		}
+		if strings.HasSuffix(levelStarImageUrl, ")") {
+			levelStarImageUrl = strings.TrimRight(levelStarImageUrl, ")")
+		}
+	}
 	var competitiveRank int32
 	if competitiveRank, err = extractInt32(doc, "div.competitive-rank > div"); err != nil {
 		competitiveRank = NoCompetitiveRank
@@ -182,6 +192,7 @@ func parseStat(doc *goquery.Document, battleTagString string, battleTagNumber in
 		ProfileImageUrl:         profileImageUrl,
 		Level:                   level,
 		LevelImageUrl:           levelImageUrl,
+		LevelStarImageUrl:       levelStarImageUrl,
 		CompetitiveRank:         competitiveRank,
 		CompetitiveRankImageUrl: competitiveRankImageUrl,
 		Detail:                  detail,

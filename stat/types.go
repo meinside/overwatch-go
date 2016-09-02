@@ -18,6 +18,7 @@ type Stat struct {
 	ProfileImageUrl         string `json:"profile_image_url"`
 	Level                   int32  `json:"level"`
 	LevelImageUrl           string `json:"level_image_url"`
+	LevelStarImageUrl       string `json:"level_star_image_url"`
 	CompetitiveRank         int32  `json:"competitive_rank"`
 	CompetitiveRankImageUrl string `json:"competitive_rank_image_url"`
 	Detail                  string `json:"detail"`

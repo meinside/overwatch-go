@@ -293,20 +293,23 @@ const (
 </html>`
 )
 
+// sizes
 const (
 	// positions and sizes on banner
 	BannerWidth        = 320
 	BannerHeight       = 50
 	Margin             = 4
-	BannerLevelBgSize  = 50
 	BannerRankIconSize = 35
+	BannerLevelBgSize  = BannerHeight
 
 	// font sizes
 	FontSizeBattleTag float64 = 17.0
 	FontSizeDetail    float64 = 13.0
 	FontSizeLevel     float64 = 11.0
 	FontSizeRank      float64 = 11.0
+)
 
+const (
 	// file urls
 	OverwatchLogoImageUrl = "https://github.com/meinside/overwatch-go/raw/master/overwatch_logo.png"
 	KoverwatchFontUrl     = "http://kr.battle.net/forums/static/fonts/koverwatch/koverwatch.ttf"
@@ -454,7 +457,33 @@ func genBanner(stat Stat, logo image.Image, font *truetype.Font) (result *image.
 	); err != nil {
 		return nil, err
 	}
-	// level,
+	// level stars (if exists)
+	levelBgStartY := 0.0
+	levelTextY := BannerHeight * 0.58
+	if stat.LevelStarImageUrl != "" {
+		levelBgStartY = -BannerHeight * 0.1
+		levelTextY = BannerHeight * 0.48
+
+		var levelStar image.Image
+		if levelStar, err = getImage(stat.LevelStarImageUrl); err == nil {
+			// load and resize stars to fit in the banner
+			levelStar = resize.Resize(BannerLevelBgSize, BannerLevelBgSize*0.5, levelStar, resize.Lanczos3)
+
+			draw.Draw(
+				banner,
+				image.Rectangle{
+					Min: image.Point{X: BannerWidth - BannerHeight*2, Y: BannerLevelBgSize * 0.5},
+					Max: image.Point{X: BannerWidth - BannerHeight, Y: BannerLevelBgSize},
+				},
+				levelStar,
+				image.ZP,
+				draw.Over,
+			)
+		} else {
+			return nil, err
+		}
+	}
+	// level and level bg
 	var levelBg image.Image
 	if levelBg, err = getImage(stat.LevelImageUrl); err == nil {
 		// load and resize level bg to fit in the banner
@@ -463,8 +492,8 @@ func genBanner(stat Stat, logo image.Image, font *truetype.Font) (result *image.
 		draw.Draw(
 			banner,
 			image.Rectangle{
-				Min: image.Point{X: BannerWidth - BannerHeight*2, Y: 0},
-				Max: image.Point{X: BannerWidth - BannerHeight, Y: BannerHeight},
+				Min: image.Point{X: BannerWidth - BannerHeight*2, Y: int(levelBgStartY)},
+				Max: image.Point{X: BannerWidth - BannerHeight, Y: BannerHeight + int(levelBgStartY)},
 			},
 			levelBg,
 			image.ZP,
@@ -478,7 +507,7 @@ func genBanner(stat Stat, logo image.Image, font *truetype.Font) (result *image.
 		fmt.Sprintf("%3d", stat.Level),
 		freetype.Pt(
 			int(BannerWidth-BannerHeight*1.64),
-			int(context.PointToFixed(BannerHeight*0.58)>>6),
+			int(context.PointToFixed(levelTextY)>>6),
 		),
 	); err != nil {
 		return nil, err
