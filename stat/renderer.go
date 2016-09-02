@@ -69,11 +69,14 @@ const (
 				text-align: center;
 				position: relative;
 				float: left;
+				background-image: url({{.LevelImageUrl}}), url({{.LevelStarImageUrl}});
+				background-size: 80px 80px, 80px 40px;
+				background-repeat: no-repeat, no-repeat;
+				background-position: center, left bottom;
 			}
-			div.level.text {
-				left: 0;
-				position: absolute;
-				top: 32px;
+			div.level-text {
+				position: relative;
+				top: 40%;
 				width: 100%;
 				font-size: 0.9rem;
 			}
@@ -137,8 +140,7 @@ const (
 				</div>
 				<div class="info-item">
 					<div class="level">
-						<img src="{{.LevelImageUrl}}" class="level">
-						<div class="level text">{{.Level}}</div>
+						<div class="level-text">{{.Level}}</div>
 					</div>
 				</div>
 				{{if .CompetitiveRankImageUrl}}
