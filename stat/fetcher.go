@@ -66,7 +66,7 @@ func parseStat(doc *goquery.Document, battleTagString string, battleTagNumber in
 		return Stat{}, err
 	}
 	var level int32
-	if level, err = extractInt32(doc, "div.player-level > div"); err != nil {
+	if level, err = extractInt32(doc, "div.player-level > div:nth-child(1)"); err != nil {
 		return Stat{}, err
 	}
 	var levelImageUrl string
