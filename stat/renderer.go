@@ -38,6 +38,24 @@ const (
 			}
 			h1,h2,h3,h4,h5 {
 				font-family: Koverwatch, sans-serif;
+				
+				margin-top: 12px;
+				margin-bottom: 8px;
+			}
+			h1 {
+			    padding-left: 3px;
+			}
+			h2 {
+			    padding-left: 6px;
+			}
+			h3 {
+			    padding-left: 9px;
+			}
+			h4 {
+			    padding-left: 12px;
+			}
+			h5 {
+			    padding-left: 15px;
 			}
 			div.info-items {
 				overflow-x: auto;
@@ -50,11 +68,15 @@ const (
 				float: left;
 			}
 			div.info-name {
-				font-size: 3rem;
+				font-size: 1.8rem;
 				font-family: Koverwatch, sans-serif;
+
+				margin-bottom: 10px;
 			}
 			div.info-detail {
 				font-family: Koverwatch, sans-serif;
+
+				margin-bottom: 5px;
 			}
 			img.profile {
 				width: 80px;
@@ -81,7 +103,7 @@ const (
 				font-size: 0.9rem;
 			}
 			img.level {
-				width: 80;
+				width: 80px;
 			}
 			div.rank {
 				display: inline-block;
@@ -111,6 +133,8 @@ const (
 			ul {
 				list-style-type: none;
 				display: table;
+
+				padding-left: 10px;
 			}
 			ul > li {
 				display: table-row;
@@ -118,6 +142,9 @@ const (
 			ul > li > span {
 				display: table-cell;
 				padding: 3px 5px 3px 5px;
+			}
+			li.not-achieved {
+				opacity: 0.3;
 			}
 			span.key {
 				color: rgba(240,237,242,.6);
@@ -268,7 +295,6 @@ const (
 				<li>
 					<h2>{{.Name}}</h2>
 					{{if .Achieved}}
-						<h3>Achieved</h3>
 						<ul>
 							{{range .Achieved}}
 								<li>
@@ -278,10 +304,9 @@ const (
 						</ul>
 					{{end}}
 					{{if .NonAchieved}}
-						<h3>Not achieved yet</h3>
 						<ul>
 							{{range .NonAchieved}}
-								<li>
+								<li class="not-achieved">
 									<span class="key"><img src="{{.ImageUrl}}" class="achievement-icon"> {{.Title}}</span><span class="value">{{.Description}}</span>
 								</li>
 							{{end}}
