@@ -27,7 +27,7 @@ var Verbose bool = false
 //		https://playoverwatch.com/en-us/career/pc/kr/meinside-3155
 //		https://playoverwatch.com/ko-kr/career/xbl/meinside
 //		https://playoverwatch.com/ru-ru/career/psn/meinside
-func genUrl(battleTagString string, battleTagNumber int, platform, region, language string) string {
+func GenUrl(battleTagString string, battleTagNumber int, platform, region, language string) string {
 	if strings.EqualFold(platform, PlatformPc) {
 		return fmt.Sprintf("https://playoverwatch.com/%s/career/%s/%s/%s-%d",
 			language,
@@ -47,7 +47,7 @@ func genUrl(battleTagString string, battleTagNumber int, platform, region, langu
 
 // fetch given user's stat from official overwatch site.
 func FetchStat(battleTagString string, battleTagNumber int, platform, region, language string) (result Stat, err error) {
-	url := genUrl(battleTagString, battleTagNumber, platform, region, language)
+	url := GenUrl(battleTagString, battleTagNumber, platform, region, language)
 
 	if Verbose {
 		log.Printf("> fetching from url: %s\n", url)
