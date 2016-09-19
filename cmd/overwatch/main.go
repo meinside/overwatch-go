@@ -16,7 +16,7 @@ const (
 	DefaultRegion   = "en"
 	DefaultLanguage = "en-us"
 
-	PlatformParamDescription       = `platform string, eg. "pc", ...`
+	PlatformParamDescription       = `platform string, eg. "pc", "xbl", "psn", ...`
 	RegionParamDescription         = `region string, eg. "us", "kr", "eu", ...`
 	LanguageParamDescription       = `language string, eg. "en-us", "ko-kr", ...`
 	VerboseParamDescription        = `show verbose messages for debugging purpose`
@@ -47,55 +47,67 @@ func main() {
 	} else {
 		stat.Verbose = *verbose
 
-		battleTags := strings.Split(*battleTag, "#")
-		if len(battleTags) == 2 {
-			if battleTagNumber, err := strconv.Atoi(battleTags[1]); err == nil {
-				if result, err := stat.FetchStat(battleTags[0], int(battleTagNumber), *platform, *region, *language); err == nil {
-					// print or save result
-					if *toHtml {
-						if html, err := stat.RenderStatToHtml(result, stat.SampleHtmlTemplate); err == nil {
-							if *outFile != "" {
-								if err := saveToFile(*outFile, []byte(html)); err != nil {
-									fmt.Printf("* Failed to save %s: %s\n", *outFile, err)
-								}
-							} else {
-								if !*suppressOutput {
-									fmt.Printf("%s\n", html) // print to stdout
-								}
-							}
-						} else {
-							fmt.Printf("* HTML encode error: %s\n", err)
+		var battleTags []string
+		var battleTagNumber int
+		if strings.EqualFold(*platform, stat.PlatformPc) { // PC
+			battleTags = strings.Split(*battleTag, "#")
+
+			if len(battleTags) != 2 {
+				fmt.Printf("* Malformed battle tag: %s\n", *battleTag)
+				return
+			}
+
+			var err error
+			if battleTagNumber, err = strconv.Atoi(battleTags[1]); err != nil {
+				fmt.Printf("* Malformed battle tag: %s (%s)\n", *battleTag, err)
+				return
+			}
+		} else { // Console (XBL, PSN)
+			battleTags = []string{*battleTag}
+			battleTagNumber = 0 // XXX - not needed
+			*region = ""        // XXX - not needed
+		}
+
+		if result, err := stat.FetchStat(battleTags[0], int(battleTagNumber), *platform, *region, *language); err == nil {
+			// print or save result
+			if *toHtml {
+				if html, err := stat.RenderStatToHtml(result, stat.SampleHtmlTemplate); err == nil {
+					if *outFile != "" {
+						if err := saveToFile(*outFile, []byte(html)); err != nil {
+							fmt.Printf("* Failed to save %s: %s\n", *outFile, err)
 						}
 					} else {
-						if bytes, err := json.MarshalIndent(result, "", "\t"); err == nil {
-							if *outFile != "" {
-								if err := saveToFile(*outFile, bytes); err != nil {
-									fmt.Printf("* Failed to save %s: %s\n", *outFile, err)
-								}
-							} else {
-								if !*suppressOutput {
-									fmt.Printf("%s\n", string(bytes)) // print to stdout
-								}
-							}
-						} else {
-							fmt.Printf("* JSON encode error: %s\n", err)
-						}
-					}
-
-					// if requested, create a banner file
-					if *bannerFile != "" {
-						if stat.RenderStatToPngFile(result, nil, nil, *bannerFile); err != nil {
-							fmt.Printf("* Failed to create a banner file: %s\n", err)
+						if !*suppressOutput {
+							fmt.Printf("%s\n", html) // print to stdout
 						}
 					}
 				} else {
-					fmt.Printf("* Fetch error: %s\n", err)
+					fmt.Printf("* HTML encode error: %s\n", err)
 				}
 			} else {
-				fmt.Printf("* Malformed battle tag: %s (%s)\n", *battleTag, err)
+				if bytes, err := json.MarshalIndent(result, "", "\t"); err == nil {
+					if *outFile != "" {
+						if err := saveToFile(*outFile, bytes); err != nil {
+							fmt.Printf("* Failed to save %s: %s\n", *outFile, err)
+						}
+					} else {
+						if !*suppressOutput {
+							fmt.Printf("%s\n", string(bytes)) // print to stdout
+						}
+					}
+				} else {
+					fmt.Printf("* JSON encode error: %s\n", err)
+				}
+			}
+
+			// if requested, create a banner file
+			if *bannerFile != "" {
+				if stat.RenderStatToPngFile(result, nil, nil, *bannerFile); err != nil {
+					fmt.Printf("* Failed to create a banner file: %s\n", err)
+				}
 			}
 		} else {
-			fmt.Printf("* Malformed battle tag: %s\n", *battleTag)
+			fmt.Printf("* Fetch error: %s\n", err)
 		}
 	}
 }

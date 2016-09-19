@@ -10,26 +10,44 @@ import (
 )
 
 const (
-	FakeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.82 Safari/537.36"
+	NoCompetitiveRank = -1
 )
 
 const (
-	NoCompetitiveRank = -1
+	PlatformPc  = "pc"
+	PlatformXbl = "xbl"
+	PlatformPsn = "psn"
 )
 
 var Verbose bool = false
 
-// fetch given user's stat from official overwatch site.
+// generate url for given params
 //
-// ex: https://playoverwatch.com/en-us/career/pc/kr/meinside-3155
+// ex:
+//		https://playoverwatch.com/en-us/career/pc/kr/meinside-3155
+//		https://playoverwatch.com/ko-kr/career/xbl/meinside
+//		https://playoverwatch.com/ru-ru/career/psn/meinside
+func genUrl(battleTagString string, battleTagNumber int, platform, region, language string) string {
+	if strings.EqualFold(platform, PlatformPc) {
+		return fmt.Sprintf("https://playoverwatch.com/%s/career/%s/%s/%s-%d",
+			language,
+			platform,
+			region,
+			battleTagString,
+			battleTagNumber,
+		)
+	} else {
+		return fmt.Sprintf("https://playoverwatch.com/%s/career/%s/%s",
+			language,
+			platform,
+			battleTagString,
+		)
+	}
+}
+
+// fetch given user's stat from official overwatch site.
 func FetchStat(battleTagString string, battleTagNumber int, platform, region, language string) (result Stat, err error) {
-	url := fmt.Sprintf("https://playoverwatch.com/%s/career/%s/%s/%s-%d",
-		language,
-		platform,
-		region,
-		battleTagString,
-		battleTagNumber,
-	)
+	url := genUrl(battleTagString, battleTagNumber, platform, region, language)
 
 	if Verbose {
 		log.Printf("> fetching from url: %s\n", url)
@@ -182,9 +200,16 @@ func parseStat(doc *goquery.Document, battleTagString string, battleTagNumber in
 		})
 	}
 
+	var battleTag string
+	if strings.EqualFold(platform, PlatformPc) {
+		battleTag = fmt.Sprintf("%s#%d", battleTagString, battleTagNumber)
+	} else {
+		battleTag = battleTagString
+	}
+
 	// return result
 	return Stat{
-		BattleTag: fmt.Sprintf("%s#%d", battleTagString, battleTagNumber),
+		BattleTag: battleTag,
 		Platform:  platform,
 		Region:    region,
 

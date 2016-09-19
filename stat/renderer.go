@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/golang/freetype"
 	"github.com/golang/freetype/truetype"
@@ -461,10 +462,17 @@ func genBanner(stat Stat, logo image.Image, font *truetype.Font) (result *image.
 	context.SetDst(banner)
 	context.SetSrc(image.White)
 
+	var label string
+
 	// print battletag, platform, and region
 	context.SetFontSize(FontSizeBattleTag)
+	if strings.EqualFold(stat.Platform, PlatformPc) {
+		label = fmt.Sprintf("%s  %s/%s", stat.BattleTag, stat.Platform, stat.Region)
+	} else {
+		label = fmt.Sprintf("%s / %s", stat.BattleTag, stat.Platform)
+	}
 	if _, err = context.DrawString(
-		fmt.Sprintf("%s  %s/%s", stat.BattleTag, stat.Platform, stat.Region),
+		label,
 		freetype.Pt(
 			int(BannerHeight+Margin),
 			int(context.PointToFixed(FontSizeBattleTag)>>6),
