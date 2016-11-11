@@ -165,16 +165,16 @@ func parseStat(doc *goquery.Document, battleTagString string, battleTagNumber in
 		// achieved/non-achieved achievements
 		achieved := []Achievement{}
 		nonAchieved := []Achievement{}
-		if urls, err = extractAttrStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) > ul div.achievement-card > img", i+1), "src"); err != nil {
+		if urls, err = extractAttrStrings(doc, fmt.Sprintf("#achievements-section > div > div:nth-of-type(%d) > ul div.achievement-card > img", i+2 /* skip first one */), "src"); err != nil {
 			return Stat{}, err
 		}
-		if titles, err = extractStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) div.tooltip-tip > h6", i+1)); err != nil {
+		if titles, err = extractStrings(doc, fmt.Sprintf("#achievements-section > div > div:nth-of-type(%d) div.tooltip-tip > h6", i+2 /* skip first one */)); err != nil {
 			return Stat{}, err
 		}
-		if descriptions, err = extractStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) div.tooltip-tip > p", i+1)); err != nil {
+		if descriptions, err = extractStrings(doc, fmt.Sprintf("#achievements-section > div > div:nth-of-type(%d) div.tooltip-tip > p", i+2 /* skip first one */)); err != nil {
 			return Stat{}, err
 		}
-		if classes, err = extractAttrStrings(doc, fmt.Sprintf("#achievements-section div[data-group-id=\"achievements\"]:nth-of-type(%d) > ul div.achievement-card", i+1), "class"); err != nil {
+		if classes, err = extractAttrStrings(doc, fmt.Sprintf("#achievements-section > div > div:nth-of-type(%d) > ul div.achievement-card", i+2 /* skip first one */), "class"); err != nil {
 			return Stat{}, err
 		}
 		for i, class := range classes {
@@ -258,13 +258,13 @@ func extractPlayStat(doc *goquery.Document, id TagId) (featuredStats map[string]
 	}
 	for i, comparison := range comparison {
 		heroes := []Hero{}
-		if heroNames, err = extractStrings(doc, fmt.Sprintf("#%s > section.hero-comparison-section div.progress-category:nth-of-type(%d) div.bar-text > div.title", id, i+1)); err != nil {
+		if heroNames, err = extractStrings(doc, fmt.Sprintf("#%s > section.hero-comparison-section > div > div:nth-of-type(%d) div.bar-text > div.title", id, i+2 /* skip first one */)); err != nil {
 			return featuredStats, topHeroes, careerStats, err
 		}
-		if heroImageUrls, err = extractAttrStrings(doc, fmt.Sprintf("#%s > section.hero-comparison-section div.progress-category:nth-of-type(%d) img", id, i+1), "src"); err != nil {
+		if heroImageUrls, err = extractAttrStrings(doc, fmt.Sprintf("#%s > section.hero-comparison-section > div > div:nth-of-type(%d) img", id, i+2 /* skip first one */), "src"); err != nil {
 			return featuredStats, topHeroes, careerStats, err
 		}
-		if heroValues, err = extractStrings(doc, fmt.Sprintf("#%s > section.hero-comparison-section div.progress-category:nth-of-type(%d) div.bar-text > div.description", id, i+1)); err != nil {
+		if heroValues, err = extractStrings(doc, fmt.Sprintf("#%s > section.hero-comparison-section > div > div:nth-of-type(%d) div.bar-text > div.description", id, i+2 /* skip first one */)); err != nil {
 			return featuredStats, topHeroes, careerStats, err
 		}
 		for i, _ := range heroNames {

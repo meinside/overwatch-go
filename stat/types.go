@@ -3,8 +3,8 @@ package stat
 type TagId string
 
 const (
-	TagIdQuickPlay       TagId = "quick-play"
-	TagIdCompetitivePlay TagId = "competitive-play"
+	TagIdQuickPlay       TagId = "quickplay"
+	TagIdCompetitivePlay TagId = "competitive"
 )
 
 // stat struct fetched from official site
