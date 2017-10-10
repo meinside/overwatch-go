@@ -227,8 +227,6 @@ func parseStat(doc *goquery.Document, battleTagString string, battleTagNumber in
 
 		Achievements: achievements,
 	}, err
-
-	return Stat{}, err
 }
 
 func extractPlayStat(doc *goquery.Document, id TagId) (featuredStats map[string]string, topHeroes map[string][]Hero, careerStats []CareerStat, err error) {
