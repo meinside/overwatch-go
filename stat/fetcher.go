@@ -289,7 +289,7 @@ func extractPlayStat(doc *goquery.Document, id TagId) (featuredStats map[string]
 			return featuredStats, topHeroes, careerStats, err
 		}
 		var categoryNames []string
-		if categoryNames, err = extractStrings(doc, fmt.Sprintf("#%s div[data-category-id=\"%s\"] div.card-stat-block > table.data-table > thead > tr > th > span.stat-title", id, statId)); err != nil {
+		if categoryNames, err = extractStrings(doc, fmt.Sprintf("#%s div[data-category-id=\"%s\"] div.card-stat-block > table.data-table > thead > tr > th > .stat-title", id, statId)); err != nil {
 			return featuredStats, topHeroes, careerStats, err
 		}
 
